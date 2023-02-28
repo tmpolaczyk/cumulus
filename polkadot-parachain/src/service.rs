@@ -509,6 +509,7 @@ where
 async fn start_node_impl<RuntimeApi, RB, BIQ, BIC>(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
+	moondance_config: Option<(Configuration, ParaId)>,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	_rpc_ext_builder: RB,
@@ -651,6 +652,20 @@ where
 	let overseer_handle = relay_chain_interface
 		.overseer_handle()
 		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+	if let Some((moondance_config, moondance_para_id)) = moondance_config {
+		// Start moondance node
+		let (moondance_task_manager, _moondance_client) = start_node_impl_moondance(
+			moondance_config,
+			relay_chain_interface.clone(),
+			moondance_para_id,
+			rococo_parachain_build_import_queue,
+		)
+		.await?;
+
+		task_manager.add_child(moondance_task_manager);
+	}
+
 	if validator {
 		let parachain_consensus = build_consensus(
 			client.clone(),
@@ -703,6 +718,125 @@ where
 	Ok((task_manager, client))
 }
 
+/// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
+///
+/// This is the actual implementation that is abstract over the executor and the runtime api.
+#[sc_tracing::logging::prefix_logs_with("Moondance")]
+async fn start_node_impl_moondance<RuntimeApi, BIQ>(
+	parachain_config: Configuration,
+	relay_chain_interface: Arc<dyn RelayChainInterface>,
+	para_id: ParaId,
+	build_import_queue: BIQ,
+) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
+where
+	RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+	RuntimeApi::RuntimeApi: sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block>
+		+ sp_api::Metadata<Block>
+		+ sp_session::SessionKeys<Block>
+		+ sp_api::ApiExt<
+			Block,
+			StateBackend = sc_client_api::StateBackendFor<ParachainBackend, Block>,
+		> + sp_offchain::OffchainWorkerApi<Block>
+		+ sp_block_builder::BlockBuilder<Block>
+		+ cumulus_primitives_core::CollectCollationInfo<Block>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
+		+ frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+	sc_client_api::StateBackendFor<ParachainBackend, Block>: sp_api::StateBackend<BlakeTwo256>,
+	BIQ: FnOnce(
+		Arc<ParachainClient<RuntimeApi>>,
+		ParachainBlockImport<RuntimeApi>,
+		&Configuration,
+		Option<TelemetryHandle>,
+		&TaskManager,
+	) -> Result<
+		sc_consensus::DefaultImportQueue<Block, ParachainClient<RuntimeApi>>,
+		sc_service::Error,
+	>,
+{
+	let parachain_config = prepare_node_config(parachain_config);
+
+	let params = new_partial::<RuntimeApi, BIQ>(&parachain_config, build_import_queue)?;
+	let (_block_import, mut telemetry, _telemetry_worker_handle) = params.other;
+
+	let client = params.client.clone();
+	let backend = params.backend.clone();
+
+	let mut task_manager = params.task_manager;
+
+	let transaction_pool = params.transaction_pool.clone();
+	let import_queue_service = params.import_queue.service();
+
+	let (network, system_rpc_tx, tx_handler_controller, start_network) =
+		build_network(cumulus_client_service::BuildNetworkParams {
+			parachain_config: &parachain_config,
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			para_id,
+			spawn_handle: task_manager.spawn_handle(),
+			relay_chain_interface: relay_chain_interface.clone(),
+			import_queue: params.import_queue,
+		})
+		.await?;
+
+	let rpc_builder = {
+		let client = client.clone();
+		let transaction_pool = transaction_pool.clone();
+
+		let backend_for_rpc = backend.clone();
+		Box::new(move |deny_unsafe, _| {
+			let deps = rpc::FullDeps {
+				client: client.clone(),
+				pool: transaction_pool.clone(),
+				deny_unsafe,
+			};
+
+			rpc::create_full(deps, backend_for_rpc.clone()).map_err(Into::into)
+		})
+	};
+
+	sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+		rpc_builder,
+		client: client.clone(),
+		transaction_pool: transaction_pool.clone(),
+		task_manager: &mut task_manager,
+		config: parachain_config,
+		keystore: params.keystore_container.sync_keystore(),
+		backend: backend.clone(),
+		network: network.clone(),
+		system_rpc_tx,
+		tx_handler_controller,
+		telemetry: telemetry.as_mut(),
+	})?;
+
+	let announce_block = {
+		let network = network.clone();
+		Arc::new(move |hash, data| network.announce_block(hash, data))
+	};
+
+	let relay_chain_slot_duration = Duration::from_secs(6);
+
+	let overseer_handle = relay_chain_interface
+		.overseer_handle()
+		.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
+
+	let params = StartFullNodeParams {
+		client: client.clone(),
+		announce_block,
+		task_manager: &mut task_manager,
+		para_id,
+		relay_chain_interface,
+		relay_chain_slot_duration,
+		import_queue: import_queue_service,
+		recovery_handle: Box::new(overseer_handle),
+	};
+
+	start_full_node(params)?;
+
+	start_network.start_network();
+
+	Ok((task_manager, client))
+}
+
 /// Build the import queue for the rococo parachain runtime.
 pub fn rococo_parachain_build_import_queue(
 	client: Arc<ParachainClient<rococo_parachain_runtime::RuntimeApi>>,
@@ -748,6 +882,7 @@ pub fn rococo_parachain_build_import_queue(
 pub async fn start_rococo_parachain_node(
 	parachain_config: Configuration,
 	polkadot_config: Configuration,
+	moondance_config: Option<(Configuration, ParaId)>,
 	collator_options: CollatorOptions,
 	para_id: ParaId,
 	hwbench: Option<sc_sysinfo::HwBench>,
@@ -758,6 +893,7 @@ pub async fn start_rococo_parachain_node(
 	start_node_impl::<rococo_parachain_runtime::RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
+		moondance_config,
 		collator_options,
 		para_id,
 		|_| Ok(RpcModule::new(())),
@@ -1141,6 +1277,7 @@ where
 	start_node_impl::<RuntimeApi, _, _, _>(
 		parachain_config,
 		polkadot_config,
+		None,
 		collator_options,
 		para_id,
 		|_| Ok(RpcModule::new(())),

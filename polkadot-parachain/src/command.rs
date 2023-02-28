@@ -16,7 +16,7 @@
 
 use crate::{
 	chain_spec,
-	cli::{Cli, RelayChainCli, Subcommand},
+	cli::{Cli, MoondanceCli, RelayChainCli, Subcommand},
 	service::{
 		new_partial, Block, BridgeHubKusamaRuntimeExecutor, BridgeHubPolkadotRuntimeExecutor,
 		BridgeHubRococoRuntimeExecutor, CollectivesPolkadotRuntimeExecutor,
@@ -75,7 +75,8 @@ impl RuntimeResolver for PathBuf {
 			id: String,
 		}
 
-		let file = std::fs::File::open(self).expect("Failed to open file");
+		let file = std::fs::File::open(self)
+			.unwrap_or_else(|e| panic!("Failed to open file: {}\n{:?}", self.display(), e));
 		let reader = std::io::BufReader::new(file);
 		let chain_spec: EmptyChainSpecWithId = sp_serializer::from_reader(reader)
 			.expect("Failed to read 'json' file with ChainSpec configuration");
@@ -120,7 +121,7 @@ fn runtime(id: &str) -> Runtime {
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 	let (id, _, para_id) = extract_parachain_id(id);
 	Ok(match id {
-		// - Defaul-like
+		// - Default-like
 		"staging" =>
 			Box::new(chain_spec::rococo_parachain::staging_rococo_parachain_local_config()),
 		"tick" =>
@@ -366,6 +367,64 @@ impl SubstrateCli for RelayChainCli {
 	}
 }
 
+impl SubstrateCli for MoondanceCli {
+	fn impl_name() -> String {
+		"Moondance parachain".into()
+	}
+
+	fn impl_version() -> String {
+		env!("SUBSTRATE_CLI_IMPL_VERSION").into()
+	}
+
+	fn description() -> String {
+		format!(
+			"Moondance parachain\n\nThe command-line arguments provided first will be \
+		passed to the parachain node, while the arguments provided after -- will be passed \
+		to the relay chain node, and the arguments provided after another -- will be passed \
+		to the moondance node\n\n\
+		{} [parachain-args] -- [relay_chain-args] -- [moondance-args]",
+			Self::executable_name()
+		)
+	}
+
+	fn author() -> String {
+		env!("CARGO_PKG_AUTHORS").into()
+	}
+
+	fn support_url() -> String {
+		"https://github.com/paritytech/cumulus/issues/new".into()
+	}
+
+	fn copyright_start_year() -> i32 {
+		2017
+	}
+
+	fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+		// TODO: find a better way to set "" as the default value, as the default seems to be
+		// "rococo-local", and that fails with error file not found inside load_spec
+		//let id = "";
+		log::info!("MoondanceCli::load_spec {:?}", id);
+		load_spec(id)
+	}
+
+	fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+		match chain_spec.runtime() {
+			Runtime::Statemint => &statemint_runtime::VERSION,
+			Runtime::Statemine => &statemine_runtime::VERSION,
+			Runtime::Westmint => &westmint_runtime::VERSION,
+			Runtime::CollectivesPolkadot | Runtime::CollectivesWestend =>
+				&collectives_polkadot_runtime::VERSION,
+			Runtime::Shell => &shell_runtime::VERSION,
+			Runtime::Seedling => &seedling_runtime::VERSION,
+			Runtime::ContractsRococo => &contracts_rococo_runtime::VERSION,
+			Runtime::BridgeHub(bridge_hub_runtime_type) =>
+				bridge_hub_runtime_type.runtime_version(),
+			Runtime::Penpal(_) => &penpal_runtime::VERSION,
+			Runtime::Default => &rococo_parachain_runtime::VERSION,
+		}
+	}
+}
+
 /// Creates partial components for the runtimes that are supported by the benchmarks.
 macro_rules! construct_benchmark_partials {
 	($config:expr, |$partials:ident| $code:expr) => {
@@ -598,7 +657,7 @@ pub fn run() -> Result<()> {
 			runner.sync_run(|config| {
 				let polkadot_cli = RelayChainCli::new(
 					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
+					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args().iter()),
 				);
 
 				let polkadot_config = SubstrateCli::create_configuration(
@@ -823,8 +882,9 @@ pub fn run() -> Result<()> {
 
 				let polkadot_cli = RelayChainCli::new(
 					&config,
-					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
+					[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args().iter()),
 				);
+
 
 				let id = ParaId::from(para_id);
 
@@ -843,13 +903,30 @@ pub fn run() -> Result<()> {
 					SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, tokio_handle)
 						.map_err(|err| format!("Relay chain argument error: {}", err))?;
 
+
 				info!("Parachain id: {:?}", id);
 				info!("Parachain Account: {}", parachain_account);
 				info!("Parachain genesis state: {}", genesis_state);
 				info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-				if !collator_options.relay_chain_rpc_urls.is_empty() && cli.relaychain_args.len() > 0 {
+				if !collator_options.relay_chain_rpc_urls.is_empty() && cli.relaychain_args().len() > 0 {
 					warn!("Detected relay chain node arguments together with --relay-chain-rpc-url. This command starts a minimal Polkadot node that only uses a network-related subset of all relay chain CLI options.");
+				}
+
+				let mut moondance_config = None;
+				if !cli.moondance_args().is_empty() {
+					let moondance_cli = MoondanceCli::new(
+						&config,
+						[MoondanceCli::executable_name()].iter().chain(cli.moondance_args().iter()),
+					);
+					let tokio_handle = config.tokio_handle.clone();
+					let moondance_cli_config =
+						SubstrateCli::create_configuration(&moondance_cli, &moondance_cli, tokio_handle)
+							.map_err(|err| format!("Moondance argument error: {}", err))?;
+					let moondance_para_id = chain_spec::Extensions::try_get(&*moondance_cli_config.chain_spec)
+						.map(|e| e.para_id)
+						.ok_or_else(|| "Could not find parachain extension in chain-spec.")?;
+					moondance_config = Some((moondance_cli_config, ParaId::from(moondance_para_id)));
 				}
 
 				match config.chain_spec.runtime() {
@@ -958,6 +1035,7 @@ pub fn run() -> Result<()> {
 						crate::service::start_rococo_parachain_node(
 							config,
 							polkadot_config,
+							moondance_config,
 							collator_options,
 							id,
 							hwbench,
@@ -990,6 +1068,143 @@ impl DefaultConfigurationValues for RelayChainCli {
 }
 
 impl CliConfiguration<Self> for RelayChainCli {
+	fn shared_params(&self) -> &SharedParams {
+		self.base.base.shared_params()
+	}
+
+	fn import_params(&self) -> Option<&ImportParams> {
+		self.base.base.import_params()
+	}
+
+	fn network_params(&self) -> Option<&NetworkParams> {
+		self.base.base.network_params()
+	}
+
+	fn keystore_params(&self) -> Option<&KeystoreParams> {
+		self.base.base.keystore_params()
+	}
+
+	fn base_path(&self) -> Result<Option<BasePath>> {
+		Ok(self
+			.shared_params()
+			.base_path()?
+			.or_else(|| self.base_path.clone().map(Into::into)))
+	}
+
+	fn rpc_http(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
+		self.base.base.rpc_http(default_listen_port)
+	}
+
+	fn rpc_ipc(&self) -> Result<Option<String>> {
+		self.base.base.rpc_ipc()
+	}
+
+	fn rpc_ws(&self, default_listen_port: u16) -> Result<Option<SocketAddr>> {
+		self.base.base.rpc_ws(default_listen_port)
+	}
+
+	fn prometheus_config(
+		&self,
+		default_listen_port: u16,
+		chain_spec: &Box<dyn ChainSpec>,
+	) -> Result<Option<PrometheusConfig>> {
+		self.base.base.prometheus_config(default_listen_port, chain_spec)
+	}
+
+	fn init<F>(
+		&self,
+		_support_url: &String,
+		_impl_version: &String,
+		_logger_hook: F,
+		_config: &sc_service::Configuration,
+	) -> Result<()>
+	where
+		F: FnOnce(&mut sc_cli::LoggerBuilder, &sc_service::Configuration),
+	{
+		unreachable!("PolkadotCli is never initialized; qed");
+	}
+
+	fn chain_id(&self, is_dev: bool) -> Result<String> {
+		let chain_id = self.base.base.chain_id(is_dev)?;
+
+		Ok(if chain_id.is_empty() { self.chain_id.clone().unwrap_or_default() } else { chain_id })
+	}
+
+	fn role(&self, is_dev: bool) -> Result<sc_service::Role> {
+		self.base.base.role(is_dev)
+	}
+
+	fn transaction_pool(&self, is_dev: bool) -> Result<sc_service::config::TransactionPoolOptions> {
+		self.base.base.transaction_pool(is_dev)
+	}
+
+	fn trie_cache_maximum_size(&self) -> Result<Option<usize>> {
+		self.base.base.trie_cache_maximum_size()
+	}
+
+	fn rpc_methods(&self) -> Result<sc_service::config::RpcMethods> {
+		self.base.base.rpc_methods()
+	}
+
+	fn rpc_ws_max_connections(&self) -> Result<Option<usize>> {
+		self.base.base.rpc_ws_max_connections()
+	}
+
+	fn rpc_cors(&self, is_dev: bool) -> Result<Option<Vec<String>>> {
+		self.base.base.rpc_cors(is_dev)
+	}
+
+	fn default_heap_pages(&self) -> Result<Option<u64>> {
+		self.base.base.default_heap_pages()
+	}
+
+	fn force_authoring(&self) -> Result<bool> {
+		self.base.base.force_authoring()
+	}
+
+	fn disable_grandpa(&self) -> Result<bool> {
+		self.base.base.disable_grandpa()
+	}
+
+	fn max_runtime_instances(&self) -> Result<Option<usize>> {
+		self.base.base.max_runtime_instances()
+	}
+
+	fn announce_block(&self) -> Result<bool> {
+		self.base.base.announce_block()
+	}
+
+	fn telemetry_endpoints(
+		&self,
+		chain_spec: &Box<dyn ChainSpec>,
+	) -> Result<Option<sc_telemetry::TelemetryEndpoints>> {
+		self.base.base.telemetry_endpoints(chain_spec)
+	}
+
+	fn node_name(&self) -> Result<String> {
+		self.base.base.node_name()
+	}
+}
+
+impl DefaultConfigurationValues for MoondanceCli {
+	fn p2p_listen_port() -> u16 {
+		17334
+	}
+
+	fn rpc_ws_listen_port() -> u16 {
+		17945
+	}
+
+	fn rpc_http_listen_port() -> u16 {
+		17934
+	}
+
+	fn prometheus_listen_port() -> u16 {
+		17616
+	}
+}
+
+impl CliConfiguration<Self> for MoondanceCli {
 	fn shared_params(&self) -> &SharedParams {
 		self.base.base.shared_params()
 	}
