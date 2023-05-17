@@ -22,9 +22,9 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 
 # Polkadot
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", default-features = false, features = ["cli"] , branch = "release-v0.9.40" }
-polkadot-client = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
+polkadot-cli = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, features = ["cli"], branch = "tomasz-reinitialize-9-40" }
+polkadot-client = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-service = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
 
 # Cumulus
 cumulus-primitives-core = { path = "../../primitives/core" }
@@ -36,8 +36,8 @@ cumulus-relay-chain-interface = { path = "../relay-chain-interface" }
 sp-keyring = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-test-client = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
+polkadot-primitives = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-test-client = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
 metered = { package = "prioritized-metered-channel", version = "0.4.0" }
 
 # Cumulus

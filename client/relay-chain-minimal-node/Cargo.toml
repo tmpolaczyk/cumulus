@@ -6,13 +6,13 @@ edition = "2021"
 
 [dependencies]
 # polkadot deps
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-node-subsystem-util = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-node-network-protocol = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-network-bridge = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
+polkadot-primitives = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-core-primitives = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-overseer = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-service = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-node-subsystem-util = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-node-network-protocol = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-network-bridge = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
 
 # substrate deps
 sc-authority-discovery = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }

@@ -49,12 +49,12 @@ substrate-test-client = { git = "https://github.com/paritytech/substrate", branc
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }
 
 # Polkadot
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-node-subsystem = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
-polkadot-overseer = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
+polkadot-primitives = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-service = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-test-service = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-cli = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-node-subsystem = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
+polkadot-overseer = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
 
 # Cumulus
 cumulus-client-cli = { path = "../../client/cli" }
@@ -76,7 +76,7 @@ futures = "0.3.26"
 portpicker = "0.1.1"
 
 # Polkadot dependencies
-polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.40" }
+polkadot-test-service = { git = "https://github.com/tmpolaczyk/polkadot", branch = "tomasz-reinitialize-9-40" }
 
 # Substrate dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.40" }

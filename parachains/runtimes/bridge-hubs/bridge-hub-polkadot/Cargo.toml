@@ -48,15 +48,15 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", default
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.40" }
 
 # Polkadot
-polkadot-runtime-constants = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-pallet-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-pallet-xcm-benchmarks = { git = "https://github.com/paritytech/polkadot", default-features = false, optional = true , branch = "release-v0.9.40" }
-polkadot-core-primitives = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-polkadot-runtime-common = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-xcm = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", default-features = false, branch = "release-v0.9.40" }
+polkadot-runtime-constants = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+pallet-xcm = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+pallet-xcm-benchmarks = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, optional = true, branch = "tomasz-reinitialize-9-40" }
+polkadot-core-primitives = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+polkadot-parachain = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+polkadot-runtime-common = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+xcm = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+xcm-builder = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
+xcm-executor = { git = "https://github.com/tmpolaczyk/polkadot", default-features = false, branch = "tomasz-reinitialize-9-40" }
 
 # Cumulus
 cumulus-pallet-aura-ext = { path = "../../../../pallets/aura-ext", default-features = false }
