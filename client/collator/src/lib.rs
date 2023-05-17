@@ -367,7 +367,7 @@ pub async fn start_collator<Block, RA, BS, Spawner>(
 	};
 
 	overseer_handle
-		.send_msg(CollationGenerationMessage::Initialize(config), "StartCollator")
+		.send_msg(CollationGenerationMessage::Reinitialize(config), "StartCollator")
 		.await;
 
 	overseer_handle
